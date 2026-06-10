@@ -347,3 +347,148 @@ AND createdAt >= NOW() - INTERVAL '7 days';
 3. Table partitioning by month or year.
 4. Caching frequently accessed data using Redis.
 5. Monitoring slow queries using database profiling tools.
+
+
+# Stage 4
+
+## Performance Problem
+
+Currently notifications are fetched from the database every time a student opens the application. As the number of students and notifications grows, this creates excessive database load and increases response times.
+
+## Proposed Solution
+
+A combination of:
+
+1. Pagination
+2. Redis Caching
+3. WebSocket-based Real-Time Updates
+4. Database Indexing
+5. Archival Strategy
+
+should be used.
+
+---
+
+## 1. Pagination
+
+Instead of loading all notifications:
+
+```http
+GET /notifications?page=1&limit=20
+```
+
+### Benefits
+
+- Smaller payload size
+- Faster API responses
+- Reduced memory consumption
+- Better user experience
+
+### Tradeoff
+
+- Additional API calls when users navigate pages
+
+---
+
+## 2. Redis Caching
+
+Frequently accessed notifications should be cached.
+
+### Flow
+
+1. User requests notifications
+2. Check Redis cache
+3. If cache exists → return cached data
+4. Otherwise fetch from DB and cache result
+
+### Benefits
+
+- Reduced database load
+- Faster response times
+- Better scalability
+
+### Tradeoff
+
+- Cache invalidation complexity
+- Additional infrastructure cost
+
+---
+
+## 3. WebSocket Real-Time Updates
+
+Instead of polling the server repeatedly:
+
+- Client establishes WebSocket connection
+- Server pushes notifications instantly
+
+### Benefits
+
+- Real-time delivery
+- Reduced HTTP requests
+- Improved user experience
+
+### Tradeoff
+
+- Persistent connection management
+- Additional server resources
+
+---
+
+## 4. Database Indexing
+
+Recommended Index:
+
+```sql
+CREATE INDEX idx_notifications_student_read_created
+ON notifications(studentID, isRead, createdAt);
+```
+
+### Benefits
+
+- Faster filtering
+- Faster sorting
+- Improved query performance
+
+### Tradeoff
+
+- Slightly slower insert and update operations
+
+---
+
+## 5. Archiving Old Notifications
+
+Notifications older than a defined retention period should be moved to archive tables.
+
+### Benefits
+
+- Smaller active dataset
+- Faster queries
+- Improved maintenance
+
+### Tradeoff
+
+- Additional archive management
+
+---
+
+## Recommended Architecture
+
+Client
+↓
+API Layer
+↓
+Redis Cache
+↓
+PostgreSQL Database
+↓
+Archive Storage
+
+WebSocket Server handles real-time notification delivery independently.
+
+## Expected Outcome
+
+- Reduced database load
+- Faster page load times
+- Improved scalability
+- Better user experience
+- Support for millions of notifications
