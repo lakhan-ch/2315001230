@@ -243,3 +243,107 @@ FROM notifications
 WHERE student_id='student-id'
 AND is_read=false;
 ```
+
+SELECT *
+FROM notifications
+WHERE studentID = 1042
+AND isRead = false
+ORDER BY createdAt ASC;
+
+# Stage 3
+
+## Query Analysis
+
+### Given Query
+
+```sql
+SELECT *
+FROM notifications
+WHERE studentID = 1042
+AND isRead = false
+ORDER BY createdAt ASC;
+```
+
+### Is This Query Accurate?
+
+Yes, it correctly fetches all unread notifications for student 1042 and sorts them by creation time.
+
+### Why Is It Slow?
+
+The database contains approximately:
+
+- 50,000 students
+- 5,000,000 notifications
+
+Potential issues:
+
+1. SELECT * fetches unnecessary columns.
+2. Full table scans may occur without proper indexes.
+3. Sorting large datasets is expensive.
+4. Returning all unread notifications at once can create large result sets.
+5. Increased I/O operations and memory usage.
+
+### Recommended Index
+
+```sql
+CREATE INDEX idx_notifications_student_read_created
+ON notifications(studentID, isRead, createdAt);
+```
+
+### Optimized Query
+
+```sql
+SELECT id,
+       notification_type,
+       message,
+       createdAt
+FROM notifications
+WHERE studentID = 1042
+AND isRead = false
+ORDER BY createdAt ASC;
+```
+
+### Computational Cost
+
+Without Index:
+
+O(N)
+
+Where N = Total notifications.
+
+With Composite Index:
+
+O(log N)
+
+Database can directly locate matching records instead of scanning millions of rows.
+
+### Should We Add Indexes On Every Column?
+
+No.
+
+Reasons:
+
+- Consumes additional storage.
+- Slows INSERT operations.
+- Slows UPDATE operations.
+- Many indexes may never be used.
+- Increased maintenance overhead.
+
+Indexes should only be added on frequently filtered, sorted, or joined columns.
+
+### Query To Find Students Who Received Placement Notifications In Last 7 Days
+
+```sql
+SELECT DISTINCT studentID
+FROM notifications
+WHERE notification_type = 'Placement'
+AND createdAt >= NOW() - INTERVAL '7 days';
+```
+
+### Additional Improvements
+
+1. Pagination using LIMIT and OFFSET.
+2. Archiving old notifications.
+3. Table partitioning by month or year.
+4. Caching frequently accessed data using Redis.
+5. Monitoring slow queries using database profiling tools.
