@@ -132,3 +132,114 @@ Flow:
 3. New notification generated
 4. Notification pushed instantly
 5. Client updates UI without refresh
+
+# Stage 2
+
+## Database Choice
+
+I recommend PostgreSQL because:
+
+* Supports ACID transactions
+* Reliable for large datasets
+* Strong indexing support
+* Efficient querying
+* Easy scalability
+
+## Database Schema
+
+### students
+
+| Column | Type    |
+| ------ | ------- |
+| id     | UUID    |
+| name   | VARCHAR |
+| email  | VARCHAR |
+
+### notifications
+
+| Column            | Type      |
+| ----------------- | --------- |
+| id                | UUID      |
+| student_id        | UUID      |
+| notification_type | ENUM      |
+| message           | TEXT      |
+| is_read           | BOOLEAN   |
+| created_at        | TIMESTAMP |
+
+## Relationships
+
+* One student can have many notifications.
+* Each notification belongs to one student.
+
+## Potential Scaling Problems
+
+As notification count increases:
+
+1. Slow queries
+2. High storage usage
+3. Increased response time
+4. Expensive sorting operations
+
+## Solutions
+
+### Indexing
+
+```sql
+CREATE INDEX idx_student_read
+ON notifications(student_id,is_read);
+```
+
+### Partitioning
+
+Partition notifications by month.
+
+### Pagination
+
+Return limited records per request.
+
+### Archiving
+
+Move old notifications to archive tables.
+
+## Sample Queries
+
+### Create Notification
+
+```sql
+INSERT INTO notifications
+(id,student_id,notification_type,message,is_read,created_at)
+VALUES
+(uuid_generate_v4(),
+'student-id',
+'Placement',
+'Google Hiring',
+false,
+NOW());
+```
+
+### Fetch Notifications
+
+```sql
+SELECT *
+FROM notifications
+WHERE student_id='student-id'
+ORDER BY created_at DESC
+LIMIT 20;
+```
+
+### Mark Read
+
+```sql
+UPDATE notifications
+SET is_read=true
+WHERE id='notification-id';
+```
+
+### Unread Count
+
+```sql
+SELECT COUNT(*)
+FROM notifications
+WHERE student_id='student-id'
+AND is_read=false;
+```
