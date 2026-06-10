@@ -492,3 +492,123 @@ WebSocket Server handles real-time notification delivery independently.
 - Improved scalability
 - Better user experience
 - Support for millions of notifications
+
+# Stage 5
+
+## Problems With Current Implementation
+
+The current implementation processes notifications sequentially.
+
+```text
+send_email()
+save_to_db()
+push_to_app()
+```
+
+Issues:
+
+1. Slow execution for 50,000 students.
+2. Failure of one email can interrupt the process.
+3. No retry mechanism.
+4. No fault tolerance.
+5. Tight coupling between email, database, and app notification services.
+6. Difficult to scale horizontally.
+
+---
+
+## What Happens If Email Fails For 200 Students?
+
+The system becomes inconsistent.
+
+Some students may:
+
+- Receive app notifications but no email.
+- Have notifications stored in DB but not delivered.
+- Receive duplicate notifications if the process is restarted.
+
+---
+
+## Recommended Architecture
+
+Use an asynchronous event-driven architecture.
+
+Components:
+
+- Notification Service
+- Message Queue (RabbitMQ/Kafka)
+- Email Worker
+- In-App Notification Worker
+- Database
+
+Flow:
+
+1. HR clicks Notify All.
+2. Notification request stored in DB.
+3. Event published to Message Queue.
+4. Email workers process email jobs.
+5. Notification workers process app notifications.
+6. Failed jobs automatically retried.
+
+---
+
+## Should Save To DB And Send Email Happen Together?
+
+No.
+
+Saving to DB should happen first.
+
+Reason:
+
+- Database becomes source of truth.
+- Failed deliveries can be retried later.
+- Prevents data loss.
+- Improves reliability.
+
+---
+
+## Revised Pseudocode
+
+```python
+def notify_all(student_ids, message):
+
+    notification_id = save_notification_to_db(message)
+
+    for student_id in student_ids:
+
+        publish_to_queue({
+            "notification_id": notification_id,
+            "student_id": student_id,
+            "message": message
+        })
+
+
+def email_worker(job):
+
+    try:
+        send_email(job["student_id"], job["message"])
+        mark_email_sent(job["student_id"])
+
+    except Exception:
+        retry_job(job)
+
+
+def app_notification_worker(job):
+
+    try:
+        push_to_app(job["student_id"], job["message"])
+        mark_notification_sent(job["student_id"])
+
+    except Exception:
+        retry_job(job)
+```
+
+---
+
+## Benefits
+
+- Highly scalable
+- Fault tolerant
+- Supports retries
+- Faster processing
+- Independent services
+- Better monitoring and observability
